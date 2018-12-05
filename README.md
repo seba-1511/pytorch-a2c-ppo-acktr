@@ -1,7 +1,6 @@
 # pytorch-a2c-ppo-acktr
 
-## Update 10/06/2017: added enjoy.py and a link to pretrained models!
-## Update 09/27/2017: now supports both Atari and MuJoCo/Roboschool!
+## Please use hyper parameters from this readme. With other hyper parameters things might not work (it's RL after all)!
 
 This is a PyTorch implementation of
 * Advantage Actor Critic (A2C), a synchronous deterministic version of [A3C](https://arxiv.org/pdf/1602.01783v1.pdf)
@@ -71,6 +70,7 @@ It's extremely difficult to reproduce results for Reinforcement Learning methods
 * Improve this README file. Rearrange images.
 * Improve performance of KFAC, see kfac.py for more information
 * Run evaluation for all games and algorithms
+* Properly handle masking for continuing tasks, don't mask if ended because of max steps (see https://github.com/sfujim/TD3/blob/master/main.py#L123)
 
 ## Training
 
@@ -86,7 +86,7 @@ python main.py --env-name "PongNoFrameskip-v4"
 #### PPO
 
 ```bash
-python main.py --env-name "PongNoFrameskip-v4" --algo ppo --use-gae --lr 2.5e-4 --clip-param 0.1 --value-loss-coef 1 --num-processes 8 --num-steps 128 --num-mini-batch 4 --vis-interval 1 --log-interval 1
+python main.py --env-name "PongNoFrameskip-v4" --algo ppo --use-gae --lr 2.5e-4 --clip-param 0.1 --value-loss-coef 0.5 --num-processes 8 --num-steps 128 --num-mini-batch 4 --vis-interval 1 --log-interval 1 --use-linear-lr-decay --use-linear-clip-decay --entropy-coef 0.01
 ```
 
 #### ACKTR
@@ -102,13 +102,13 @@ I **highly** recommend to use --add-timestep argument with some mujoco environme
 #### A2C
 
 ```bash
-python main.py --env-name "Reacher-v2" --num-stack 1 --num-frames 1000000
+python main.py --env-name "Reacher-v2" --num-env-steps 1000000
 ```
 
 #### PPO
 
 ```bash
-python main.py --env-name "Reacher-v2" --algo ppo --use-gae --vis-interval 1  --log-interval 1 --num-stack 1 --num-steps 2048 --num-processes 1 --lr 3e-4 --entropy-coef 0 --value-loss-coef 1 --ppo-epoch 10 --num-mini-batch 32 --gamma 0.99 --tau 0.95 --num-frames 1000000
+python main.py --env-name "Reacher-v2" --algo ppo --use-gae --vis-interval 1  --log-interval 1 --num-steps 2048 --num-processes 1 --lr 3e-4 --entropy-coef 0 --value-loss-coef 0.5 --ppo-epoch 10 --num-mini-batch 32 --gamma 0.99 --tau 0.95 --num-env-steps 1000000 --use-linear-lr-decay
 ```
 
 #### ACKTR
@@ -126,13 +126,13 @@ Disclaimer: I might have used different hyper-parameters to train these models.
 ### Atari
 
 ```bash
-python enjoy.py --load-dir trained_models/a2c --env-name "PongNoFrameskip-v4" --num-stack 4
+python enjoy.py --load-dir trained_models/a2c --env-name "PongNoFrameskip-v4"
 ```
 
 ### MuJoCo
 
 ```bash
-python enjoy.py --load-dir trained_models/ppo --env-name "Reacher-v2" --num-stack 1
+python enjoy.py --load-dir trained_models/ppo --env-name "Reacher-v2"
 ```
 
 ## Results

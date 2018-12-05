@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 
-class PPO(object):
+class PPO():
     def __init__(self,
                  actor_critic,
                  clip_param,
@@ -14,7 +14,8 @@ class PPO(object):
                  entropy_coef,
                  lr=None,
                  eps=None,
-                 max_grad_norm=None):
+                 max_grad_norm=None,
+                 use_clipped_value_loss=True):
 
         self.actor_critic = actor_critic
 
@@ -26,6 +27,7 @@ class PPO(object):
         self.entropy_coef = entropy_coef
 
         self.max_grad_norm = max_grad_norm
+        self.use_clipped_value_loss = use_clipped_value_loss
 
         self.optimizer = optim.Adam(actor_critic.parameters(), lr=lr, eps=eps)
 
@@ -34,13 +36,12 @@ class PPO(object):
         advantages = (advantages - advantages.mean()) / (
             advantages.std() + 1e-5)
 
-
         value_loss_epoch = 0
         action_loss_epoch = 0
         dist_entropy_epoch = 0
 
         for e in range(self.ppo_epoch):
-            if hasattr(self.actor_critic.base, 'gru'):
+            if self.actor_critic.is_recurrent:
                 data_generator = rollouts.recurrent_generator(
                     advantages, self.num_mini_batch)
             else:
@@ -48,13 +49,13 @@ class PPO(object):
                     advantages, self.num_mini_batch)
 
             for sample in data_generator:
-                observations_batch, states_batch, actions_batch, \
-                   return_batch, masks_batch, old_action_log_probs_batch, \
+                obs_batch, recurrent_hidden_states_batch, actions_batch, \
+                   value_preds_batch, return_batch, masks_batch, old_action_log_probs_batch, \
                         adv_targ = sample
 
                 # Reshape to do in a single forward pass for all steps
-                values, action_log_probs, dist_entropy, states = self.actor_critic.evaluate_actions(
-                    observations_batch, states_batch,
+                values, action_log_probs, dist_entropy, _ = self.actor_critic.evaluate_actions(
+                    obs_batch, recurrent_hidden_states_batch,
                     masks_batch, actions_batch)
 
                 ratio = torch.exp(action_log_probs - old_action_log_probs_batch)
@@ -63,7 +64,14 @@ class PPO(object):
                                            1.0 + self.clip_param) * adv_targ
                 action_loss = -torch.min(surr1, surr2).mean()
 
-                value_loss = F.mse_loss(return_batch, values)
+                if self.use_clipped_value_loss:
+                    value_pred_clipped = value_preds_batch + \
+                        (values - value_preds_batch).clamp(-self.clip_param, self.clip_param)
+                    value_losses = (values - return_batch).pow(2)
+                    value_losses_clipped = (value_pred_clipped - return_batch).pow(2)
+                    value_loss = 0.5 * torch.max(value_losses, value_losses_clipped).mean()
+                else:
+                    value_loss = 0.5 * (return_batch - values).pow(2).mean()
 
                 self.optimizer.zero_grad()
                 (value_loss * self.value_loss_coef + action_loss -
