@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
+from a2c_ppo_acktr.algo.add_gradient_noise import add_gradient_noise
 
 class PPO():
     def __init__(self,
@@ -15,7 +16,8 @@ class PPO():
                  lr=None,
                  eps=None,
                  max_grad_norm=None,
-                 use_clipped_value_loss=True):
+                 use_clipped_value_loss=True,
+                 gradient_noise=0.0):
 
         self.actor_critic = actor_critic
 
@@ -30,6 +32,7 @@ class PPO():
         self.use_clipped_value_loss = use_clipped_value_loss
 
         self.optimizer = optim.Adam(actor_critic.parameters(), lr=lr, eps=eps)
+        self.gradient_noise = gradient_noise
 
     def update(self, rollouts):
         advantages = rollouts.returns[:-1] - rollouts.value_preds[:-1]
@@ -78,6 +81,7 @@ class PPO():
                  dist_entropy * self.entropy_coef).backward()
                 nn.utils.clip_grad_norm_(self.actor_critic.parameters(),
                                          self.max_grad_norm)
+                add_gradient_noise(self.actor_critic.parameters(), self.gradient_noise)
                 self.optimizer.step()
 
                 value_loss_epoch += value_loss.item()

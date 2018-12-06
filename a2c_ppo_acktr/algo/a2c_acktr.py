@@ -4,6 +4,7 @@ import torch.optim as optim
 
 from a2c_ppo_acktr.algo.kfac import KFACOptimizer
 
+from a2c_ppo_acktr.algo.add_gradient_noise import add_gradient_noise
 
 class A2C_ACKTR():
     def __init__(self,
@@ -14,7 +15,8 @@ class A2C_ACKTR():
                  eps=None,
                  alpha=None,
                  max_grad_norm=None,
-                 acktr=False):
+                 acktr=False,
+                 gradient_noise=0.0):
 
         self.actor_critic = actor_critic
         self.acktr = acktr
@@ -29,6 +31,7 @@ class A2C_ACKTR():
         else:
             self.optimizer = optim.RMSprop(
                 actor_critic.parameters(), lr, eps=eps, alpha=alpha)
+        self.gradient_noise = gradient_noise
 
     def update(self, rollouts):
         obs_shape = rollouts.obs.size()[2:]
@@ -74,6 +77,7 @@ class A2C_ACKTR():
             nn.utils.clip_grad_norm_(self.actor_critic.parameters(),
                                      self.max_grad_norm)
 
+        add_gradient_noise(self.actor_critic.parameters(), self.gradient_noise)
         self.optimizer.step()
 
         return value_loss.item(), action_loss.item(), dist_entropy.item()

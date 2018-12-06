@@ -7,6 +7,8 @@ def get_args():
     parser = argparse.ArgumentParser(description='RL')
     parser.add_argument('--algo', default='a2c',
                         help='algorithm to use: a2c | ppo | acktr')
+    parser.add_argument('--experiment', default='dev',
+                        help='name of the randopt experiment')
     parser.add_argument('--lr', type=float, default=7e-4,
                         help='learning rate (default: 7e-4)')
     parser.add_argument('--eps', type=float, default=1e-5,
@@ -69,6 +71,8 @@ def get_args():
                         help='enable visdom visualization')
     parser.add_argument('--port', type=int, default=8097,
                         help='port to run the server on (default: 8097)')
+    parser.add_argument('--gradient_noise', type=float, default=0.0,
+                        help='Variance of the noise to be added to the gradients.')
     args = parser.parse_args()
 
     args.cuda = not args.no_cuda and torch.cuda.is_available()

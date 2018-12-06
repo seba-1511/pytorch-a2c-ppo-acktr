@@ -5,6 +5,8 @@ import time
 from collections import deque
 
 import gym
+import pybullet
+import randopt as ro
 import numpy as np
 import torch
 import torch.nn as nn
@@ -19,6 +21,17 @@ from a2c_ppo_acktr.storage import RolloutStorage
 from a2c_ppo_acktr.utils import get_vec_normalize, update_linear_schedule
 from a2c_ppo_acktr.visualize import visdom_plot
 
+ALL_UPDATES = []
+ALL_TIMESTEPS = []
+ALL_FPS = []
+ALL_MEAN_REWARDS = []
+ALL_MEDIAN_REWARDS = []
+ALL_MIN_REWARDS = []
+ALL_MAX_REWARDS = []
+ALL_DIST_ENTROPY = []
+ALL_VALUE_LOSS = []
+ALL_ACTION_LOSS = []
+ARGUMENTS = {}
 
 args = get_args()
 
@@ -54,6 +67,7 @@ except OSError:
 
 
 def main():
+    ARGUMENTS.update(vars(args))
     torch.set_num_threads(1)
     device = torch.device("cuda:0" if args.cuda else "cpu")
 
@@ -169,6 +183,16 @@ def main():
                        np.min(episode_rewards),
                        np.max(episode_rewards), dist_entropy,
                        value_loss, action_loss))
+            ALL_UPDATES.append(j)
+            ALL_TIMESTEPS.append(total_num_steps)
+            ALL_FPS.append(int(total_num_steps / (end - start)))
+            ALL_MEAN_REWARDS.append(np.mean(episode_rewards))
+            ALL_MEDIAN_REWARDS.append(np.median(episode_rewards))
+            ALL_MIN_REWARDS.append(np.min(episode_rewards))
+            ALL_MAX_REWARDS.append(np.max(episode_rewards))
+            ALL_DIST_ENTROPY.append(dist_entropy)
+            ALL_VALUE_LOSS.append(value_loss)
+            ALL_ACTION_LOSS.append(action_loss)
 
         if (args.eval_interval is not None
                 and len(episode_rewards) > 1
@@ -216,6 +240,24 @@ def main():
                                   args.algo, args.num_env_steps)
             except IOError:
                 pass
+    # Save the results
+    name = ARGUMENTS['env_name'] + '-' + ARGUMENTS['algo'] + '-' + ARGUMENTS['experiment'] + '-grad_noise' + str(ARGUMENTS['gradient_noise'])
+    experiment = ro.Experiment(name, directory='results')
+    data = {
+        'updates': ALL_UPDATES,
+        'timesteps': ALL_TIMESTEPS,
+        'fps': ALL_FPS,
+        'mean_rewards': ALL_MEAN_REWARDS,
+        'median_rewards': ALL_MEDIAN_REWARDS,
+        'min_rewards': ALL_MIN_REWARDS,
+        'max_rewards': ALL_MAX_REWARDS,
+        'dist_entropy': ALL_DIST_ENTROPY,
+        'value_loss': ALL_VALUE_LOSS,
+        'action_loss': ALL_ACTION_LOSS,
+    }
+    data.update(ARGUMENTS)
+    result = data['mean_rewards'][-1]
+    experiment.add_result(result, data)
 
 
 if __name__ == "__main__":
